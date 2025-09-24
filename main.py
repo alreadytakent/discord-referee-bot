@@ -9,6 +9,8 @@ from gops import GOPSGame
 # Load environment variables
 load_dotenv()
 
+DISCORD_TOKEN = os.getenv("discordkey")
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -291,4 +293,4 @@ async def start_game_error(ctx, error):
 # Run the bot
 if __name__ == "__main__":
     webserver.keep_alive()
-    bot.run(os.getenv('DISCORD_TOKEN'))
+    bot.run(DISCORD_KEY)
