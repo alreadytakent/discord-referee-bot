@@ -37,13 +37,13 @@ class BloodyDottyGame:
         """Format the table for display"""
         lines = []
         # Header row
-        header = "Y\\X  " + "  ".join(f"{i}" for i in range(1, 10)) + " 10"
+        header = "Y\\X   " + "  ".join(f"{i}" for i in range(1, 10)) + " 10\n"
         lines.append(header)
 
         # Data rows
         for i in range(10):
             row_num = i + 1
-            row = f"{row_num:2}  "
+            row = f"{row_num:2}   "
             for j in range(10):
                 if self.possible[i][j]:
                     row += f"{self.table[i][j]:2} "
@@ -187,5 +187,6 @@ class BloodyDottyGame:
                 f"Updated Table of Possible Sums:\n{self.format_table()}\n"
                 f"Next to guess: {self.current_guesser.mention}"
             )
+
 
         return result_message
