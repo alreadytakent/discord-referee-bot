@@ -60,8 +60,8 @@ class CombinationGame:
 
     def validate_hand(self, cards, player_role):
         """Validate a hand and return (is_valid, error_message, card_values)"""
-        if len(cards) == 0:
-            return False, "❌ Please provide at least one card!", None
+        if len(cards) != 5:
+            return False, f"❌ Please provide exactly 5 cards that sum up to {self.current_number}!", None
 
         card_values = []
         for card in cards:
@@ -228,5 +228,6 @@ class CombinationGame:
         self.awaiting_guesser = True
 
         result_message += f"\nNext number : **{self.current_number}**"
+
 
         return result_message
