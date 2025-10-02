@@ -58,7 +58,7 @@ class CombinationGame:
         else:
             return str(value)
 
-    def validate_hand(self, cards, player_role):
+    def validate_hand(self, cards):
         """Validate a hand and return (is_valid, error_message, card_values)"""
         if len(cards) != 5:
             return False, f"❌ Please provide exactly 5 cards that sum up to {self.current_number}!", None
@@ -79,7 +79,7 @@ class CombinationGame:
 
         # Check if sum matches the target number
         total_sum = sum(card_values)
-        if player_role == "maker" and total_sum != self.current_number:
+        if total_sum != self.current_number:
             return False, f"❌ Your hand sums to {total_sum}, but the target is {self.current_number}.", None
 
         return True, None, card_values
@@ -128,7 +128,7 @@ class CombinationGame:
         if not self.awaiting_maker:
             return "❌ You've already submitted your combination for this round!"
 
-        is_valid, error, card_values = self.validate_hand(cards, "maker")
+        is_valid, error, card_values = self.validate_hand(cards)
         if not is_valid:
             return error
 
@@ -151,7 +151,7 @@ class CombinationGame:
         if not self.awaiting_guesser:
             return "❌ You've already submitted your guess for this round!"
 
-        is_valid, error, card_values = self.validate_hand(cards, "guesser")
+        is_valid, error, card_values = self.validate_hand(cards)
         if not is_valid:
             return error
 
@@ -228,6 +228,5 @@ class CombinationGame:
         self.awaiting_guesser = True
 
         result_message += f"\nNext number : **{self.current_number}**"
-
 
         return result_message
