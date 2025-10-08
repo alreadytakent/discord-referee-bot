@@ -50,10 +50,6 @@ class DropTheHandkerchiefGame:
             f"Check your DMs for instructions. {self.dropper.mention} is the dropper first!"
         )
 
-        # Send role instructions via DMs
-        await self.dropper.send("🎯 You're the dropper! Use `.drop [1-60]` to choose when to drop the handkerchief.")
-        await self.checker.send("👀 You're the checker! Use `.check [1-60]` to choose when to look back.")
-
         return True
 
     async def process_drop(self, player, number):
@@ -149,9 +145,5 @@ class DropTheHandkerchiefGame:
         self.round += 1
 
         result_message += f"\n\n🔄 **Round {self.round}** - {self.dropper.mention} is now the dropper!"
-
-        # Send role instructions via DMs for next round
-        await self.dropper.send("🎯 You're now the dropper! Use `.drop [1-60]` to choose when to drop the handkerchief.")
-        await self.checker.send("👀 You're now the checker! Use `.check [1-60]` to choose when to look back.")
 
         return result_message
