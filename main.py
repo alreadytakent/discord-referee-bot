@@ -7,6 +7,7 @@ from dth import DropTheHandkerchiefGame
 from gops import GOPSGame
 from combination import CombinationGame
 from dotty import BloodyDottyGame
+from airpoker import AirPokerGame
 
 # Load environment variables
 load_dotenv()
@@ -132,6 +133,33 @@ async def start_dotty_game(ctx, opponent: discord.Member):
     # Create new game
     game_id = (ctx.author.id, opponent.id, "dotty")
     game = BloodyDottyGame(ctx.author, opponent, ctx.channel)
+    game_channels[game_id] = ctx.channel.id
+
+    # Try to start the game
+    if await game.start_game():
+        active_games[game_id] = game
+
+@bot.command(name='airpoker')
+async def start_airpoker_game(ctx, opponent: discord.Member):
+    """Start an Air Poker game"""
+    # Validation checks
+    if opponent == ctx.author:
+        await ctx.send("❌ You can't play against yourself!")
+        return
+
+    if opponent.bot:
+        await ctx.send("❌ You can't play against a bot!")
+        return
+
+    # Check if either player is already in a game
+    for game_id, game in active_games.items():
+        if ctx.author.id in game_id or opponent.id in game_id:
+            await ctx.send("❌ One of the players is already in an active game!")
+            return
+
+    # Create new game
+    game_id = (ctx.author.id, opponent.id, "airpoker")
+    game = AirPokerGame(ctx.author, opponent, ctx.channel)
     game_channels[game_id] = ctx.channel.id
 
     # Try to start the game
@@ -323,6 +351,59 @@ async def process_dm_command(message):
                     game_id_to_remove = game_id
                     break
 
+    elif game_type == "airpoker":
+        if command == '.play':
+            if len(parts) < 2:
+                await message.channel.send("❌ Please provide a number to play! Usage: `.play [number]`")
+                return
+
+            try:
+                number = int(parts[1])
+            except ValueError:
+                await message.channel.send("❌ Please provide a valid number!")
+                return
+
+            result = await player_game.process_play(message.author, number)
+
+            if result:  # If there's an error message
+                await message.channel.send(result)
+            else:  # If successful, add checkmark reaction
+                try:
+                    await message.add_reaction('✅')
+                except:
+                    pass
+
+        elif command == '.hand':
+            if len(parts) < 6:
+                await message.channel.send("❌ Please provide 5 cards for your hand! Usage: `.hand As 2s 3s 4s 5s`")
+                return
+
+            cards = parts[1:6]  # Take exactly 5 cards
+            result = await player_game.process_hand(message.author, cards)
+
+            if result:  # If there's an error message
+                await message.channel.send(result)
+            else:  # If successful, add checkmark reaction
+                try:
+                    await message.add_reaction('✅')
+                except:
+                    pass
+
+        else:
+            await message.channel.send("❌ Unknown command for Air Poker game. Use `.play [number]`")
+            return
+
+        # If Air Poker game ended, remove it from active games
+        if not player_game.game_active:
+            for game_id, game in active_games.items():
+                if game == player_game:
+                    game_id_to_remove = game_id
+                    break
+            if game_id_to_remove:
+                del active_games[game_id_to_remove]
+                if game_id_to_remove in game_channels:
+                    del game_channels[game_id_to_remove]
+
     # Remove ended game
     if game_id_to_remove:
         del active_games[game_id_to_remove]
@@ -336,81 +417,193 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # Check if this is a guess command in a channel (needs to come BEFORE command processing)
-    if (not isinstance(message.channel, discord.DMChannel) and
-            message.content.startswith('.guess ')):
+    # Check for game commands in channels (needs to come BEFORE command processing)
+    if not isinstance(message.channel, discord.DMChannel):
+        # Handle guess commands for various games
+        if message.content.startswith('.guess '):
+            # First check for Combination game
+            player_game = None
+            game_type = None
+            for game_id, game in active_games.items():
+                if (message.author.id in game_id and game.game_active and
+                        game_id[2] == "comb" and hasattr(game, 'awaiting_guesser') and
+                        game.awaiting_guesser and game.guesser.id == message.author.id):
+                    player_game = game
+                    game_type = "comb"
+                    break
 
-        # First check for Combination game
-        player_game = None
-        game_type = None
-        for game_id, game in active_games.items():
-            if (message.author.id in game_id and game.game_active and
-                    game_id[2] == "comb" and hasattr(game, 'awaiting_guesser') and
-                    game.awaiting_guesser and game.guesser.id == message.author.id):
-                player_game = game
-                game_type = "comb"
-                break
+            if player_game and game_type == "comb":
+                # Handle Combination game guess
+                cards = message.content[len('.guess '):].split()
+                result = await player_game.process_guess(message.author, cards)
 
-        if player_game and game_type == "comb":
-            # Handle Combination game guess (existing code)
-            cards = message.content[len('.guess '):].split()
-            result = await player_game.process_guess(message.author, cards)
+                if result:
+                    await message.channel.send(result)
+                else:
+                    try:
+                        await message.add_reaction('✅')
+                    except:
+                        pass
 
-            if result:
-                await message.channel.send(result)
-            else:
-                try:
-                    await message.add_reaction('✅')
-                except:
-                    pass
+                if not player_game.game_active:
+                    game_id_to_remove = None
+                    for game_id, game in active_games.items():
+                        if game == player_game:
+                            game_id_to_remove = game_id
+                            break
+                    if game_id_to_remove:
+                        del active_games[game_id_to_remove]
+                        if game_id_to_remove in game_channels:
+                            del game_channels[game_id_to_remove]
 
-            if not player_game.game_active:
-                game_id_to_remove = None
-                for game_id, game in active_games.items():
-                    if game == player_game:
-                        game_id_to_remove = game_id
-                        break
-                if game_id_to_remove:
-                    del active_games[game_id_to_remove]
-                    if game_id_to_remove in game_channels:
-                        del game_channels[game_id_to_remove]
-
-            return
-
-        # Then check for Bloody Dotty game
-        player_game = None
-        game_type = None
-        for game_id, game in active_games.items():
-            if (message.author.id in game_id and game.game_active and
-                    game_id[2] == "dotty" and hasattr(game, 'current_guesser') and
-                    game.current_guesser.id == message.author.id and
-                    len(game.awaiting_grabs) == 0):  # Only if both players have grabbed
-                player_game = game
-                game_type = "dotty"
-                break
-
-        if player_game and game_type == "dotty":
-            try:
-                guess = int(message.content[len('.guess '):].strip())
-            except ValueError:
-                await message.channel.send("❌ Please provide a valid number between 2-20!")
                 return
 
-            result = await player_game.process_guess(message.author, guess)
-            await message.channel.send(result)
+            # Then check for Bloody Dotty game
+            player_game = None
+            game_type = None
+            for game_id, game in active_games.items():
+                if (message.author.id in game_id and game.game_active and
+                        game_id[2] == "dotty" and hasattr(game, 'current_guesser') and
+                        game.current_guesser.id == message.author.id and
+                        len(game.awaiting_grabs) == 0):  # Only if both players have grabbed
+                    player_game = game
+                    game_type = "dotty"
+                    break
 
-            if not player_game.game_active:
-                game_id_to_remove = None
-                for game_id, game in active_games.items():
-                    if game == player_game:
-                        game_id_to_remove = game_id
-                        break
-                if game_id_to_remove:
-                    del active_games[game_id_to_remove]
-                    if game_id_to_remove in game_channels:
-                        del game_channels[game_id_to_remove]
+            if player_game and game_type == "dotty":
+                try:
+                    guess = int(message.content[len('.guess '):].strip())
+                except ValueError:
+                    await message.channel.send("❌ Please provide a valid number between 2-20!")
+                    return
 
-            return
+                result = await player_game.process_guess(message.author, guess)
+                await message.channel.send(result)
+
+                if not player_game.game_active:
+                    game_id_to_remove = None
+                    for game_id, game in active_games.items():
+                        if game == player_game:
+                            game_id_to_remove = game_id
+                            break
+                    if game_id_to_remove:
+                        del active_games[game_id_to_remove]
+                        if game_id_to_remove in game_channels:
+                            del game_channels[game_id_to_remove]
+
+                return
+
+        # Handle combo commands for Combination game in channel
+        if message.content.startswith('.combo '):
+            # Find if the author is in a Combination game
+            player_game = None
+            game_type = None
+            for game_id, game in active_games.items():
+                if (message.author.id in game_id and game.game_active and
+                        game_id[2] == "comb" and hasattr(game, 'awaiting_maker')):
+                    player_game = game
+                    game_type = "comb"
+                    break
+
+            if player_game and game_type == "comb":
+                # Check if user is the maker
+                if player_game.maker.id != message.author.id:
+                    await message.channel.send("❌ You're not the maker this round! Wait for your turn as guesser.")
+                    return
+
+                if not player_game.awaiting_maker:
+                    await message.channel.send("❌ You've already submitted your combination for this round!")
+                    return
+
+                cards = message.content[len('.combo '):].split()
+                result = await player_game.process_combo(message.author, cards)
+
+                if result:  # If there's an error message
+                    await message.channel.send(result)
+                else:  # If successful, add checkmark reaction
+                    try:
+                        await message.add_reaction('✅')
+                    except:
+                        pass
+
+                # Check if game ended
+                if not player_game.game_active:
+                    game_id_to_remove = None
+                    for game_id, game in active_games.items():
+                        if game == player_game:
+                            game_id_to_remove = game_id
+                            break
+                    if game_id_to_remove:
+                        del active_games[game_id_to_remove]
+                        if game_id_to_remove in game_channels:
+                            del game_channels[game_id_to_remove]
+
+                return
+
+        # Handle Air Poker betting commands
+        if (message.content.startswith('.fold') or
+                message.content.startswith('.check') or
+                message.content.startswith('.call') or
+                message.content.startswith('.raise ')):
+
+            # Find if the author is in an Air Poker game
+            player_game = None
+            game_type = None
+            for game_id, game in active_games.items():
+                if (message.author.id in game_id and game.game_active and
+                        game_id[2] == "airpoker" and hasattr(game, 'betting_active') and
+                        game.betting_active):
+                    player_game = game
+                    game_type = "airpoker"
+                    break
+
+            if player_game and game_type == "airpoker":
+                content = message.content.strip()
+
+                if content == '.fold':
+                    result = await player_game.process_fold(message.author)
+
+                elif content == '.check':
+                    result = await player_game.process_check(message.author)
+
+                elif content == '.call':
+                    result = await player_game.process_call(message.author)
+
+                elif content.startswith('.raise '):
+                    amount_str = content[len('.raise '):].strip()
+                    result = await player_game.process_raise(message.author, amount_str)
+
+                else:
+                    result = "❌ Unknown betting command!"
+
+                # Check if the action was successful (result starts with ✅ or is None)
+                if result is None or (isinstance(result, str) and result.startswith('✅')):
+                    # If successful, add checkmark reaction
+                    try:
+                        await message.add_reaction('✅')
+                    except:
+                        pass
+
+                    # If there's a success message with pot update, send it
+                    if result and result.startswith('✅'):
+                        await message.channel.send(result)
+                else:
+                    # If there's an error message, send it
+                    await message.channel.send(result)
+
+                # Check if game ended
+                if not player_game.game_active:
+                    game_id_to_remove = None
+                    for game_id, game in active_games.items():
+                        if game == player_game:
+                            game_id_to_remove = game_id
+                            break
+                    if game_id_to_remove:
+                        del active_games[game_id_to_remove]
+                        if game_id_to_remove in game_channels:
+                            del game_channels[game_id_to_remove]
+
+                return
 
     # Process DMs separately
     if isinstance(message.channel, discord.DMChannel):
@@ -419,47 +612,6 @@ async def on_message(message):
 
     # Process regular server commands
     await bot.process_commands(message)
-
-
-@bot.command(name='rules')
-async def show_rules(ctx):
-    """Show game rules"""
-    rules = (
-        "🎮 **Available Games**\n\n"
-        "**1. Drop the Handkerchief (.dth)**\n"
-        "- `.dth @opponent` to start\n"
-        "- Dropper: `.drop [1-60]`\n"
-        "- Checker: `.check [1-60]`\n"
-        "- Avoid reaching 300 seconds penalty\n\n"
-        "**2. GOPS (.gops)**\n"
-        "- `.gops @opponent` to start\n"
-        "- Bid: `.bid [1-13]`\n"
-        "- Higher bid wins ALL prize cards' points\n"
-        "- Ties: prize cards carry over to next round\n"
-        "- First to 46+ points wins instantly!\n\n"
-        "**3. Combination (.comb)**\n"
-        "- `.comb @opponent` to start\n"
-        "- Maker: `.combo [cards]` - create combination\n"
-        "- Guesser: `.guess [cards]` - guess combination\n"
-        "- Cards: A/1, 2-10, J/11, Q/12, K/13\n"
-        "- Max 4 of each card, sum must match target\n"
-        "- First to 0 HP loses!\n\n"
-        "**4. Bloody Dotty (.dotty)**\n"
-        "- `.dotty @opponent` to start\n"
-        "- Grab: `.grab [1-10]` in DMs\n"
-        "- Guess: `.guess [sum]` in channel\n"
-        "- Guess the total sum of both players' numbers\n"
-        "- First correct guess wins!\n\n"
-        "**Commands:**\n"
-        "- `.dth @opponent` - Start DTH game\n"
-        "- `.gops @opponent` - Start GOPS game\n"
-        "- `.comb @opponent` - Start Combination game\n"
-        "- `.dotty @opponent` - Start Bloody Dotty game\n"
-        "- `.rules` - Show these rules\n"
-        "- `.cancel` - Cancel current game\n"
-        "- `.score` - Show current game status"
-    )
-    await ctx.send(rules)
 
 
 @bot.command(name='cancel')
@@ -488,36 +640,6 @@ async def cancel_game(ctx):
         await ctx.send("✅ Game canceled!")
     else:
         await ctx.send("❌ You're not in an active game!")
-
-
-@bot.command(name='score')
-async def show_score(ctx):
-    """Show your current game score"""
-    player_game = None
-    game_type = None
-
-    for game_id, game in active_games.items():
-        if ctx.author.id in game_id:
-            player_game = game
-            game_type = game_id[2]
-            break
-
-    if not player_game:
-        await ctx.send("❌ You're not in an active game!")
-        return
-
-    if game_type == "dth":
-        score_message = (
-            f"📊 **Drop the Handkerchief - Round {player_game.round}**\n"
-            f"{player_game.player1.mention}: {player_game.penalties[player_game.player1.id]}/300\n"
-            f"{player_game.player2.mention}: {player_game.penalties[player_game.player2.id]}/300\n\n"
-            f"Current dropper: {player_game.dropper.mention}\n"
-            f"Current checker: {player_game.checker.mention}"
-        )
-    else:  # GOPS
-        score_message = player_game.get_score_display()
-
-    await ctx.send(score_message)
 
 
 # Error handling
