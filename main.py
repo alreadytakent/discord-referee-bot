@@ -140,7 +140,7 @@ async def start_dotty_game(ctx, opponent: discord.Member):
         active_games[game_id] = game
 
 @bot.command(name='airpoker')
-async def start_airpoker_game(ctx, opponent: discord.Member):
+async def start_airpoker_game(ctx, opponent: discord.Member, *, options=None):
     """Start an Air Poker game"""
     # Validation checks
     if opponent == ctx.author:
@@ -157,9 +157,14 @@ async def start_airpoker_game(ctx, opponent: discord.Member):
             await ctx.send("❌ One of the players is already in an active game!")
             return
 
+    # Parse options
+    show_table = True
+    if options and "no_table" in options.lower():
+        show_table = False
+
     # Create new game
     game_id = (ctx.author.id, opponent.id, "airpoker")
-    game = AirPokerGame(ctx.author, opponent, ctx.channel)
+    game = AirPokerGame(ctx.author, opponent, ctx.channel, show_table)
     game_channels[game_id] = ctx.channel.id
 
     # Try to start the game
