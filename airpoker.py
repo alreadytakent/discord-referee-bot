@@ -3,13 +3,14 @@ import random
 
 class AirPokerGame:
 
-    def __init__(self, player1, player2, channel):
+    def __init__(self, player1, player2, channel, show_table=True):
         self.player1 = player1
         self.player2 = player2
         self.channel = channel
         self.game_active = True
         self.round = 1
         self.total_rounds = 5
+        self.show_table = show_table
 
         # Player bios (chips)
         self.bios = {player1.id: 25, player2.id: 25}
@@ -24,6 +25,7 @@ class AirPokerGame:
         self.awaiting_plays = [player1.id, player2.id]
         self.round_winner = None
         self.tie = False
+        self.result = None
 
         # Set first player randomly for the entire game
         self.first_player = None
@@ -184,7 +186,8 @@ class AirPokerGame:
 
         # Create poker phase start message
         result_message = (
-            f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Start :spades: :hearts: =====***\n\n"
+            f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Start :hearts: :spades: =====***\n\n"
+            f"{self.player1.mention} **vs** {self.player2.mention}\n"
             f"Both players have chosen their numbers!\n\n"
             f"**Now make your poker hands!** Use `.hand [5 cards]` in DMs.\n"
             f"Your hand must sum to your chosen number."
@@ -287,7 +290,7 @@ class AirPokerGame:
                 # Give players another chance
                 self.player_hands = {self.player1.id: None, self.player2.id: None}
                 self.awaiting_hands = [self.player1.id, self.player2.id]
-                return "Both players made a mistake! They have one more chance to submit a legal hand!"
+                return f"Both {self.player1.mention} & {self.player2.mention} made a mistake! They have one more chance to submit a legal hand!"
             else:
                 # Both illegal twice - round ends immediately as a tie, no cards removed
                 self._round_ended_immediately = True  # Set flag
@@ -309,16 +312,25 @@ class AirPokerGame:
 
     async def _end_round_tie_immediately(self):
         """End the round immediately as a tie when both players have illegal hands twice"""
+        hand1 = self.player_hands[self.player1.id]
+        hand2 = self.player_hands[self.player2.id]
+
+        # Remove cards from the deck
+        self._remove_cards_from_deck(hand1 + hand2)
+
         # Create result message for immediate tie
         result_message = (
             f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Results :hearts: :spades: =====***\n\n"
-            f"{self.player1.mention} chose: **{self.current_plays[self.player1.id]}** | Hand: `{' '.join(self.player_hands[self.player1.id])}` - ***Illegal Hand***\n"
-            f"{self.player2.mention} chose: **{self.current_plays[self.player2.id]}** | Hand: `{' '.join(self.player_hands[self.player2.id])}` - ***Illegal Hand***\n\n"
+            f"{self.player1.mention} chose: **{self.current_plays[self.player1.id]}** | Hand: `{' '.join(hand1)}` - ***Illegal Hand***\n"
+            f"{self.player2.mention} chose: **{self.current_plays[self.player2.id]}** | Hand: `{' '.join(hand2)}` - ***Illegal Hand***\n\n"
             f"Both players submitted illegal hands twice!\n"
-            f"🤝 Round is a draw! No betting occurred.\n\n"
+            f"🤝 Round is a draw! No betting occurred.\n"
+            f"All used cards are removed from the deck.\n\n"
             f"{self.player1.mention} - {self.bios[self.player1.id]} Bios | {self.player2.mention} - {self.bios[self.player2.id]} Bios\n"
-            f"{self.format_deck_display()}"
         )
+
+        if self.show_table:
+            result_message += f"{self.format_deck_display()}"
 
         # Check for game end conditions
         if self.round == self.total_rounds or self._check_bankruptcy():
@@ -634,7 +646,8 @@ class AirPokerGame:
         pot_distribution_message = ""
         if self.round_winner:
             self.bios[self.round_winner.id] += self.pot
-            pot_distribution_message = f"🏆 {self.round_winner.mention} wins the round! (+{self.pot} Bios){calamity_message}"
+            pot_distribution_message = (f"🏆 {self.round_winner.mention} wins the round! (+{self.pot} Bios){calamity_message}\n"
+                                        f"All used cards are removed from the deck.")
         else:
             # Split pot equally between both players
             half_pot = self.pot // 2
@@ -643,9 +656,11 @@ class AirPokerGame:
             # If pot is odd, give the extra Bios to first player
             if self.pot % 2 == 1:
                 self.bios[self.player1.id] += 1
-                pot_distribution_message = f"🤝 Round is a draw! Pot split: {self.player1.mention} gets {half_pot + 1} Bios, {self.player2.mention} gets {half_pot} Bios."
+                pot_distribution_message = (f"🤝 Round is a draw! Pot split: {self.player1.mention} gets {half_pot + 1} Bios, {self.player2.mention} gets {half_pot} Bios.\n"
+                                            f"All used cards are removed from the deck.")
             else:
-                pot_distribution_message = f"🤝 Round is a draw! Pot split equally: both players get {half_pot} Bios."
+                pot_distribution_message = (f"🤝 Round is a draw! Pot split equally: both players get {half_pot} Bios.\n"
+                                            f"All used cards are removed from the deck.")
 
         # Remove cards from the deck
         self._remove_cards_from_deck(hand1 + hand2)
@@ -659,8 +674,10 @@ class AirPokerGame:
             # f"**Pot size: {self.pot} Bios**\n\n"
             f"{pot_distribution_message}\n\n"
             f"{self.player1.mention} - {self.bios[self.player1.id]} Bios | {self.player2.mention} - {self.bios[self.player2.id]} Bios\n"
-            f"{self.format_deck_display()}"
         )
+
+        if self.show_table:
+            result_message += f"{self.format_deck_display()}"
 
         # Check for game end conditions
         if self.round == self.total_rounds or self._check_bankruptcy():
