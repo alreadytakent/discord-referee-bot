@@ -319,18 +319,27 @@ class AirPokerGame:
         self._remove_cards_from_deck(hand1 + hand2)
 
         # Create result message for immediate tie
-        result_message = (
-            f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Results :hearts: :spades: =====***\n\n"
-            f"{self.player1.mention} chose: **{self.current_plays[self.player1.id]}** | Hand: `{' '.join(hand1)}` - ***Illegal Hand***\n"
-            f"{self.player2.mention} chose: **{self.current_plays[self.player2.id]}** | Hand: `{' '.join(hand2)}` - ***Illegal Hand***\n\n"
-            f"Both players submitted illegal hands twice!\n"
-            f"🤝 Round is a draw! No betting occurred.\n"
-            f"All used cards are removed from the deck.\n\n"
-            f"{self.player1.mention} - {self.bios[self.player1.id]} Bios | {self.player2.mention} - {self.bios[self.player2.id]} Bios\n"
-        )
-
         if self.show_table:
-            result_message += f"{self.format_deck_display()}"
+            result_message = (
+                f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Results :hearts: :spades: =====***\n\n"
+                f"{self.player1.mention} chose: **{self.current_plays[self.player1.id]}** | Hand: `{' '.join(hand1)}` - ***Illegal Hand***\n"
+                f"{self.player2.mention} chose: **{self.current_plays[self.player2.id]}** | Hand: `{' '.join(hand2)}` - ***Illegal Hand***\n\n"
+                f"Both players submitted illegal hands twice!\n"
+                f"🤝 Round is a draw! No betting occurred.\n"
+                f"All used cards are removed from the deck.\n\n"
+                f"{self.player1.mention} - {self.bios[self.player1.id]} Bios | {self.player2.mention} - {self.bios[self.player2.id]} Bios\n"
+                f"{self.format_deck_display()}"
+            )
+        else:
+            result_message = (
+                f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Results :hearts: :spades: =====***\n\n"
+                f"{self.player1.mention} chose: **{self.current_plays[self.player1.id]}**\n"
+                f"{self.player2.mention} chose: **{self.current_plays[self.player2.id]}**\n\n"
+                f"Both players submitted illegal hands twice!\n"
+                f"🤝 Round is a draw! No betting occurred.\n"
+                f"All used cards are removed from the deck.\n\n"
+                f"{self.player1.mention} - {self.bios[self.player1.id]} Bios | {self.player2.mention} - {self.bios[self.player2.id]} Bios\n"
+            )
 
         # Check for game end conditions
         if self.round == self.total_rounds or self._check_bankruptcy():
@@ -666,18 +675,23 @@ class AirPokerGame:
         self._remove_cards_from_deck(hand1 + hand2)
 
         # Create result message
-        result_message = (
-            f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Results :hearts: :spades: =====***\n\n"
-            f"{self.player1.mention} chose: **{self.current_plays[self.player1.id]}** | Hand: `{' '.join(hand1)}` - ***{hand1_rank}***\n"
-            f"{self.player2.mention} chose: **{self.current_plays[self.player2.id]}** | Hand: `{' '.join(hand2)}` - ***{hand2_rank}***\n\n"
-            # f"**Betting:**\n{betting_lines}\n"
-            # f"**Pot size: {self.pot} Bios**\n\n"
-            f"{pot_distribution_message}\n\n"
-            f"{self.player1.mention} - {self.bios[self.player1.id]} Bios | {self.player2.mention} - {self.bios[self.player2.id]} Bios\n"
-        )
-
         if self.show_table:
-            result_message += f"{self.format_deck_display()}"
+            result_message = (
+                f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Results :hearts: :spades: =====***\n\n"
+                f"{self.player1.mention} chose: **{self.current_plays[self.player1.id]}** | Hand: `{' '.join(hand1)}` - ***{hand1_rank}***\n"
+                f"{self.player2.mention} chose: **{self.current_plays[self.player2.id]}** | Hand: `{' '.join(hand2)}` - ***{hand2_rank}***\n\n"
+                f"{pot_distribution_message}\n\n"
+                f"{self.player1.mention} - {self.bios[self.player1.id]} Bios | {self.player2.mention} - {self.bios[self.player2.id]} Bios\n"
+                f"{self.format_deck_display()}"
+            )
+        else:
+            result_message = (
+                f"***===== :clubs: :diamonds: Air Poker - Round {self.round} - Results :hearts: :spades: =====***\n\n"
+                f"{self.player1.mention} chose: **{self.current_plays[self.player1.id]}**\n"
+                f"{self.player2.mention} chose: **{self.current_plays[self.player2.id]}**\n\n"
+                f"{pot_distribution_message}\n\n"
+                f"{self.player1.mention} - {self.bios[self.player1.id]} Bios | {self.player2.mention} - {self.bios[self.player2.id]} Bios\n"
+            )
 
         # Check for game end conditions
         if self.round == self.total_rounds or self._check_bankruptcy():
