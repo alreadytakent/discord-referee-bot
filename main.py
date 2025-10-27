@@ -8,6 +8,7 @@ from gops import GOPSGame
 from combination import CombinationGame
 from dotty import BloodyDottyGame
 from airpoker import AirPokerGame
+from kod import KingOfDiamondsGame
 
 # Load environment variables
 load_dotenv()
@@ -171,6 +172,43 @@ async def start_airpoker_game(ctx, opponent: discord.Member, *, options=None):
     if await game.start_game():
         active_games[game_id] = game
 
+@bot.command(name='Kod')
+async def start_kod_game(ctx, *opponents: discord.Member):
+    """Start a King of Diamonds game"""
+    if len(opponents) < 1:
+        await ctx.send("❌ You need at least 1 opponent! Usage: `.Kod @player1 @player2 ...`")
+        return
+
+    players = [ctx.author] + list(opponents)
+
+    # Check for duplicates and bots
+    unique_players = set()
+    for player in players:
+        if player.bot:
+            await ctx.send("❌ You can't play against bots!")
+            return
+        if player.id in unique_players:
+            await ctx.send("❌ Duplicate players detected!")
+            return
+        unique_players.add(player.id)
+
+    # Check if any player is already in a game
+    for game_id, game in active_games.items():
+        for player in players:
+            if player.id in game_id:
+                await ctx.send("❌ One of the players is already in an active game!")
+                return
+
+    # Create new game with sorted player IDs for consistent game_id
+    sorted_player_ids = sorted(player.id for player in players)
+    game_id = tuple(sorted_player_ids) + ("Kod",)
+    game = KingOfDiamondsGame(players, ctx.channel)
+    game_channels[game_id] = ctx.channel.id
+
+    # Try to start the game
+    if await game.start_game():
+        active_games[game_id] = game
+
 
 async def process_dm_command(message):
     """Process commands received in DMs"""
@@ -244,7 +282,7 @@ async def process_dm_command(message):
     # Handle other commands
     if len(parts) < 2:
         await message.channel.send(
-            "❌ Invalid command. Use `.drop [1-60]`, `.check [1-60]`, `.bid [1-13]`, `.grab [1-10]`, `.combo [cards]`, or `.guess [cards]`")
+            "❌ Invalid command.")
         return
 
     command = parts[0]
@@ -267,7 +305,7 @@ async def process_dm_command(message):
     for game_id, game in active_games.items():
         if message.author.id in game_id and game.game_active:
             player_game = game
-            game_type = game_id[2]  # "dth", "gops", "comb", or "dotty"
+            game_type = game_id[-1]  # "dth", "gops", "comb", or "dotty"
             break
 
     if not player_game:
@@ -404,10 +442,43 @@ async def process_dm_command(message):
                 if game == player_game:
                     game_id_to_remove = game_id
                     break
-            if game_id_to_remove:
-                del active_games[game_id_to_remove]
-                if game_id_to_remove in game_channels:
-                    del game_channels[game_id_to_remove]
+
+    elif game_type == "Kod":
+        if command == '.num':
+            if len(parts) < 2:
+                await message.channel.send("❌ Please provide a number! Usage: `.num [0-100]`")
+                return
+
+            try:
+                number = int(parts[1])
+            except ValueError:
+                await message.channel.send("❌ Please provide a valid number between 0-100!")
+                return
+
+
+            result = await player_game.process_num(message.author, number)
+
+
+            if result:  # If there's an error message
+                await message.channel.send(result)
+            else:  # If successful, add checkmark reaction
+                try:
+                    await message.add_reaction('✅')
+                except:
+                    pass
+
+        else:
+            await message.channel.send("❌ Unknown command for King of Diamonds. Use `.num [0-100]`")
+            return
+
+        # If King of Diamonds game ended, remove it from active games
+        if not player_game.game_active:
+            # Find the correct game_id by matching the game object
+            game_id_to_remove = None
+            for game_id, game in active_games.items():
+                if game == player_game:
+                    game_id_to_remove = game_id
+                    break
 
     # Remove ended game
     if game_id_to_remove:
