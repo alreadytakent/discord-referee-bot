@@ -9,6 +9,7 @@ from combination import CombinationGame
 from dotty import BloodyDottyGame
 from airpoker import AirPokerGame
 from kod import KingOfDiamondsGame
+from knucklebones import KnucklebonesGame
 
 # Load environment variables
 load_dotenv()
@@ -203,6 +204,33 @@ async def start_kod_game(ctx, *opponents: discord.Member):
     sorted_player_ids = sorted(player.id for player in players)
     game_id = tuple(sorted_player_ids) + ("Kod",)
     game = KingOfDiamondsGame(players, ctx.channel)
+    game_channels[game_id] = ctx.channel.id
+
+    # Try to start the game
+    if await game.start_game():
+        active_games[game_id] = game
+
+@bot.command(name='kb')
+async def start_kb_game(ctx, opponent: discord.Member):
+    """Start a Knucklebones game"""
+    # Validation checks
+    if opponent == ctx.author:
+        await ctx.send("❌ You can't play against yourself!")
+        return
+
+    if opponent.bot:
+        await ctx.send("❌ You can't play against a bot!")
+        return
+
+    # Check if either player is already in a game
+    for game_id, game in active_games.items():
+        if ctx.author.id in game_id or opponent.id in game_id:
+            await ctx.send("❌ One of the players is already in an active game!")
+            return
+
+    # Create new game
+    game_id = (ctx.author.id, opponent.id, "kb")
+    game = KnucklebonesGame(ctx.author, opponent, ctx.channel)
     game_channels[game_id] = ctx.channel.id
 
     # Try to start the game
@@ -666,6 +694,50 @@ async def on_message(message):
                 else:
                     # If there's an error message, send it
                     await message.channel.send(result)
+
+                # Check if game ended
+                if not player_game.game_active:
+                    game_id_to_remove = None
+                    for game_id, game in active_games.items():
+                        if game == player_game:
+                            game_id_to_remove = game_id
+                            break
+                    if game_id_to_remove:
+                        del active_games[game_id_to_remove]
+                        if game_id_to_remove in game_channels:
+                            del game_channels[game_id_to_remove]
+
+                return
+
+        # Handle Knucklebones column commands in channel
+        if message.content.startswith('.col '):
+            # Find if the author is in a Knucklebones game
+            player_game = None
+            game_type = None
+            for game_id, game in active_games.items():
+                if (message.author.id in game_id and game.game_active and
+                        game_id[2] == "kb" and hasattr(game, 'awaiting_column') and
+                        game.awaiting_column):
+                    player_game = game
+                    game_type = "kb"
+                    break
+
+            if player_game and game_type == "kb":
+                try:
+                    column = int(message.content[len('.col '):].strip())
+                except ValueError:
+                    await message.channel.send("❌ Please provide a valid column number 1-3!")
+                    return
+
+                result = await player_game.process_col(message.author, column)
+
+                if result:  # If there's an error message
+                    await message.channel.send(result)
+                else:  # If successful, add checkmark reaction
+                    try:
+                        await message.add_reaction('✅')
+                    except:
+                        pass
 
                 # Check if game ended
                 if not player_game.game_active:
