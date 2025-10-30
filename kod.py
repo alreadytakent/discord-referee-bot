@@ -1,4 +1,6 @@
 import discord
+from game_stats import record_kod_game_result
+
 
 class KingOfDiamondsGame:
     def __init__(self, players, channel):
@@ -273,8 +275,19 @@ class KingOfDiamondsGame:
             if len(remaining_players) == 1:
                 winner = remaining_players[0]
                 result_message += f"\n🎊 **GAME OVER!** {winner.mention} is the King of Diamonds! 👑"
+
+                # Record game result - single winner
+                winner_index = self.players.index(winner)
+                record_kod_game_result(self.players, winner_index)
+
             else:
                 result_message += f"\n🎊 **GAME OVER!** It's a tie! No king today."
+
+                # Record game result - draw (only between active players who survived to the end)
+                # Get indices of players who were still active when the game ended
+                drawn_player_indices = [self.players.index(player) for player in active_players]
+                record_kod_game_result(self.players, -1, drawn_player_indices)
+
             self.game_active = False
         else:
             # Prepare for next round
