@@ -1,5 +1,6 @@
 import discord
 import random
+from game_stats import record_game_result
 
 class AirPokerGame:
 
@@ -818,9 +819,15 @@ class AirPokerGame:
 
         if self.bios[self.player1.id] > self.bios[self.player2.id]:
             winner = self.player1
+            result_code = 1
         elif self.bios[self.player2.id] > self.bios[self.player1.id]:
             winner = self.player2
+            result_code = 2
         else:
+            # Record tie game
+            record_game_result('airpoker', self.player1.id, self.player2.id, 0)
             return f"🎊 **Game Over!** It's a tie! Both players have {self.bios[self.player1.id]} Bios."
 
+        # Record game result
+        record_game_result('airpoker', self.player1.id, self.player2.id, result_code)
         return f"🎊 **Game Over!** {winner.mention} wins with {self.bios[winner.id]} Bios!"
