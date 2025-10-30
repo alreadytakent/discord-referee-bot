@@ -1,5 +1,7 @@
 import discord
 import random
+from game_stats import record_game_result
+
 
 class DropTheHandkerchiefGame:
     def __init__(self, player1, player2, channel):
@@ -134,8 +136,18 @@ class DropTheHandkerchiefGame:
 
         # Check for game end
         if self.penalties[self.checker.id] >= self.max_penalty:
-            result_message += f"\n\n🏆 **GAME OVER!** {self.dropper.mention} wins!\n{self.checker.mention} reached 300 seconds penalty!"
+            winner = self.dropper  # The dropper wins when checker reaches max penalty
+            result_message += f"\n\n🏆 **GAME OVER!** {winner.mention} wins!\n{self.checker.mention} reached 300 seconds penalty!"
             self.game_active = False
+
+            # Record game result
+            # Determine result code: 1 = player1 won, 2 = player2 won
+            if winner.id == self.player1.id:
+                result_code = 1
+            else:
+                result_code = 2
+            record_game_result('dth', self.player1.id, self.player2.id, result_code)
+
             return result_message
 
         # Switch roles for next round
