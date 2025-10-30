@@ -1,5 +1,6 @@
 import discord
 import random
+from game_stats import record_game_result
 
 
 class GOPSGame:
@@ -223,10 +224,14 @@ class GOPSGame:
         if self.scores[self.player1.id] >= 46:
             result_message += f"\n\n🎉 **GAME OVER!** {self.player1.mention} reaches {self.scores[self.player1.id]} points and wins instantly!"
             self.game_active = False
+            # Record game result
+            record_game_result('gops', self.player1.id, self.player2.id, 1)
             return result_message
         elif self.scores[self.player2.id] >= 46:
             result_message += f"\n\n🎉 **GAME OVER!** {self.player2.mention} reaches {self.scores[self.player2.id]} points and wins instantly!"
             self.game_active = False
+            # Record game result
+            record_game_result('gops', self.player1.id, self.player2.id, 2)
             return result_message
 
         # Check if game is over (both players out of cards)
@@ -234,16 +239,23 @@ class GOPSGame:
             # Game over
             if self.scores[self.player1.id] > self.scores[self.player2.id]:
                 winner = self.player1
+                result_message += f"\n\n🎉 **GAME OVER!** {winner.mention} wins with {self.scores[winner.id]} points!"
+                self.game_active = False
+                # Record game result
+                record_game_result('gops', self.player1.id, self.player2.id, 1)
             elif self.scores[self.player2.id] > self.scores[self.player1.id]:
                 winner = self.player2
+                result_message += f"\n\n🎉 **GAME OVER!** {winner.mention} wins with {self.scores[winner.id]} points!"
+                self.game_active = False
+                # Record game result
+                record_game_result('gops', self.player1.id, self.player2.id, 2)
             else:
                 # Tie game
                 result_message += f"\n\n🎉 **GAME OVER!** It's a tie! Both players scored {self.scores[self.player1.id]} points!"
                 self.game_active = False
-                return result_message
-
-            result_message += f"\n\n🎉 **GAME OVER!** {winner.mention} wins with {self.scores[winner.id]} points!"
-            self.game_active = False
+                # Record game result - draw
+                record_game_result('gops', self.player1.id, self.player2.id, 0)
+            return result_message
         else:
             # Setup next round
             self.round += 1
