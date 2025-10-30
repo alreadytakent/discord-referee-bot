@@ -1,5 +1,6 @@
 import discord
 import random
+from game_stats import record_game_result
 
 
 class BloodyDottyGame:
@@ -68,7 +69,7 @@ class BloodyDottyGame:
             # Since max sum is 20, if Y guesses S, then Y <= S - 11 would make sum impossible
             for i in range(10):  # rows (Y)
                 for j in range(10):  # columns (X)
-                    if self.table[i][j] == guess or (i + 1) > (guess - 1) or (i+1) < (guess - 10):
+                    if self.table[i][j] == guess or (i + 1) > (guess - 1) or (i + 1) < (guess - 10):
                         self.possible[i][j] = False
 
     def is_valid_guess(self, guess, player):
@@ -144,6 +145,7 @@ class BloodyDottyGame:
             max_possible = 10 + player_number
 
             # Player loses immediately for guessing an impossible sum
+            winner = self.other_player  # The other player wins when someone makes an illegal guess
             result_message = (
                 f"🎯 **Bloody Dotty - Guess Result**\n"
                 f"{player.mention} guessed: **{guess}**\n"
@@ -154,6 +156,14 @@ class BloodyDottyGame:
                 f"Final Table:\n{self.format_table()}"
             )
             self.game_active = False
+
+            # Record game result
+            if winner.id == self.player1.id:
+                result_code = 1
+            else:
+                result_code = 2
+            record_game_result('dotty', self.player1.id, self.player2.id, result_code)
+
             return result_message
 
         # Determine if guesser is player X or Y
@@ -164,6 +174,7 @@ class BloodyDottyGame:
 
         if guess == actual_sum:
             # Correct guess - game over
+            winner = player
             result_message = (
                 f"🎯 **Bloody Dotty - Guess Result**\n"
                 f"{player.mention} guessed: **{guess}**\n"
@@ -173,6 +184,14 @@ class BloodyDottyGame:
                 f"Final Table:\n{self.format_table()}"
             )
             self.game_active = False
+
+            # Record game result
+            if winner.id == self.player1.id:
+                result_code = 1
+            else:
+                result_code = 2
+            record_game_result('dotty', self.player1.id, self.player2.id, result_code)
+
         else:
             # Incorrect guess - update table and switch turns
             self.update_table_after_guess(guess, guesser_is_x)
@@ -187,6 +206,5 @@ class BloodyDottyGame:
                 f"Updated Table of Possible Sums:\n{self.format_table()}\n"
                 f"Next to guess: {self.current_guesser.mention}"
             )
-
 
         return result_message
