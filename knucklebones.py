@@ -1,5 +1,6 @@
 import discord
 import random
+from game_stats import record_game_result
 
 class KnucklebonesGame:
     def __init__(self, player1, player2, channel):
@@ -83,8 +84,16 @@ class KnucklebonesGame:
         if game_ended:
             if winner:
                 result_message += f"🎊 **GAME OVER!** {winner.mention} wins!\n\n"
+                # Record game result
+                if winner.id == self.players[0].id:
+                    result_code = 1
+                else:
+                    result_code = 2
+                record_game_result('kb', self.players[0].id, self.players[1].id, result_code)
             else:
                 result_message += f"🎊 **GAME OVER!** It's a tie!\n\n"
+                # Record game result - draw
+                record_game_result('kb', self.players[0].id, self.players[1].id, 0)
             result_message += await self._get_game_state()
             self.game_active = False
             await self.channel.send(result_message)
@@ -100,7 +109,6 @@ class KnucklebonesGame:
                 f"{next_player.mention} rolls a {self._get_dice_emoji(self.current_roll)}\n"
                 f"Choose a column to place it\n\n"
             )
-
 
             result_message += await self._get_game_state()
             await self.channel.send(result_message)
