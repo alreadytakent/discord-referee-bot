@@ -1,5 +1,6 @@
 import discord
 import random
+from game_stats import record_game_result
 
 
 class CombinationGame:
@@ -210,8 +211,17 @@ class CombinationGame:
 
         # Check for game end
         if self.hp[self.maker.id] <= 0:
-            result_message += f"\n\n🎉 **GAME OVER!** {self.guesser.mention} wins! {self.maker.mention} reaches 0 HP!"
+            winner = self.guesser  # The guesser wins when maker reaches 0 HP
+            result_message += f"\n\n🎉 **GAME OVER!** {winner.mention} wins! {self.maker.mention} reaches 0 HP!"
             self.game_active = False
+
+            # Record game result
+            if winner.id == self.player1.id:
+                result_code = 1
+            else:
+                result_code = 2
+            record_game_result('comb', self.player1.id, self.player2.id, result_code)
+
             return result_message
 
         # Setup next round
