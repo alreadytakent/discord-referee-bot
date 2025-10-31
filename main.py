@@ -38,77 +38,99 @@ async def on_ready():
 @bot.command(name='score')
 async def show_score(ctx, *, args=None):
     """Show player statistics"""
+    # If no args provided, show author's score
     if args is None:
-        await ctx.send("❌ Usage: `.score @player` or `.score @player1 vs @player2`")
-        return
-
+        args = ctx.author.mention
+    
     # Check for "vs" pattern for head-to-head
     if ' vs ' in args.lower():
         parts = args.split(' vs ', 1)
         if len(parts) != 2:
-            await ctx.send("❌ Usage: `.score @player1 vs @player2`")
+            await ctx.send("❌ Usage: `.score @player` or `.score @player1 vs @player2`")
             return
-
+        
         player1_mention = parts[0].strip()
         player2_mention = parts[1].strip()
-
+        
         # Extract user IDs from mentions
         player1 = await extract_user_from_mention(bot, ctx, player1_mention)
         player2 = await extract_user_from_mention(bot, ctx, player2_mention)
-
+        
         if not player1 or not player2:
             await ctx.send("❌ Please mention valid players!")
             return
-
+        
         # Get 1v1 game stats
         stats = await get_head_to_head_stats(player1.id, player2.id)
-
+        
         # Get KOD stats
-        kod_wins1, kod_wins2, kod_draws = await get_kod_head_to_head_stats(player1.id, player2.id)
-
+        kod_stats = await get_kod_head_to_head_stats(player1.id, player2.id)
+        kod_wins1, kod_wins2, kod_draws = kod_stats if kod_stats else (0, 0, 0)
+        
         # Format the response
+        if not stats and not kod_stats:
+            await ctx.send(f"{player1.mention} and {player2.mention} haven't played any games together!")
+            return
+            
         response = f"**{player1.mention}'s gambling score against {player2.mention}:**\n```\n"
         response += "Game           W   D   L\n\n"
-
+        
         # Add 1v1 games
         for game_type, total, wins1, wins2, draws in stats:
             game_name = get_game_display_name(game_type)
+            # For games that can't have draws, show "-" instead of 0
+            if game_type in ['dth', 'dotty', 'comb']:
+                draws_display = "-"
+            else:
+                draws_display = str(draws)
             # wins1 are player1's wins, wins2 are player2's wins (which are player1's losses)
-            response += f"{game_name:<14} {wins1:<3} {draws:<3} {wins2:<3}\n"
-
-        # Add KOD
-        response += f"{'KOD':<14} {kod_wins1:<3} {kod_draws:<3} {kod_wins2:<3}\n"
-
+            response += f"{game_name:<14} {wins1:<3} {draws_display:<3} {wins2:<3}\n"
+        
+        # Add KOD only if they have played KOD games together
+        if kod_stats and (kod_wins1 > 0 or kod_wins2 > 0 or kod_draws > 0):
+            response += f"{'KOD':<14} {kod_wins1:<3} {kod_draws:<3} {kod_wins2:<3}\n"
+            
         response += "```"
         await ctx.send(response)
-
+        
     else:
         # Single player stats
         player_mention = args.strip()
         player = await extract_user_from_mention(bot, ctx, player_mention)
-
+        
         if not player:
             await ctx.send("❌ Please mention a valid player!")
             return
-
+        
         # Get 1v1 game stats
         stats = await get_player_stats(player.id)
-
+        
         # Get KOD stats
-        kod_wins, kod_draws, kod_losses = await get_kod_player_stats(player.id)
-
+        kod_stats = await get_kod_player_stats(player.id)
+        kod_wins, kod_draws, kod_losses = kod_stats if kod_stats else (0, 0, 0)
+        
         # Format the response
+        if not stats and not kod_stats:
+            await ctx.send(f"{player.mention} hasn't played any games yet!")
+            return
+            
         response = f"**{player.mention}'s gambling score:**\n```\n"
         response += "Game           W   D   L\n\n"
-
+        
         # Add 1v1 games
         for game_type, total, wins, draws, losses in stats:
             game_name = get_game_display_name(game_type)
-            response += f"{game_name:<14} {wins:<3} {draws:<3} {losses:<3}\n"
-
-        # Add KOD
-        response += f"{'KOD':<14} {kod_wins:<3} {kod_draws:<3} {kod_losses:<3}\n"
-
+            # For games that can't have draws, show "-" instead of 0
+            if game_type in ['dth', 'dotty', 'comb']:
+                draws_display = "-"
+            else:
+                draws_display = str(draws)
+            response += f"{game_name:<14} {wins:<3} {draws_display:<3} {losses:<3}\n"
+        
+        # Add KOD only if player has played KOD games
+        if kod_stats:
+            response += f"{'KOD':<14} {kod_wins:<3} {kod_draws:<3} {kod_losses:<3}\n"
+            
         response += "```"
         await ctx.send(response)
 
@@ -886,3 +908,4 @@ async def start_game_error(ctx, error):
 if __name__ == "__main__":
     webserver.keep_alive()
     bot.run(DISCORD_TOKEN)
+
