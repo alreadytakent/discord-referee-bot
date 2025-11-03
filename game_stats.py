@@ -121,22 +121,22 @@ async def get_kod_player_stats(player_id):
     """Get KOD statistics for a player"""
     conn = sqlite3.connect('kod_results.db')
     cursor = conn.cursor()
-    
+
     cursor.execute('SELECT players_id, result, drawn_players FROM kod_games')
     all_kod_games = cursor.fetchall()
     conn.close()
-    
+
     wins = 0
     draws = 0
     losses = 0
-    
+
     for players_json, result, drawn_players_json in all_kod_games:
         players = json.loads(players_json)
         player_str_id = str(player_id)
-        
+
         if player_str_id in players:
             player_index = players.index(player_str_id)
-            
+
             if result == -1:  # Draw
                 drawn_players = json.loads(drawn_players_json) if drawn_players_json else []
                 if player_index in drawn_players:
@@ -148,11 +148,11 @@ async def get_kod_player_stats(player_id):
                     wins += 1
                 else:
                     losses += 1
-    
+
     # Return None if player has no KOD games at all
     if wins == 0 and draws == 0 and losses == 0:
         return None
-    
+
     return wins, draws, losses
 
 
@@ -255,5 +255,4 @@ def get_game_display_name(game_type):
         'airpoker': 'Air Poker',
         'kb': 'Knucklebones'
     }
-
     return names.get(game_type, game_type)
