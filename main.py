@@ -13,6 +13,7 @@ from kod import KingOfDiamondsGame
 from knucklebones import KnucklebonesGame
 from game_stats import *
 
+
 # Load environment variables
 load_dotenv()
 
@@ -28,11 +29,72 @@ bot = commands.Bot(command_prefix='.', intents=intents)
 active_games = {}
 game_channels = {}  # Store which channel each game is in
 
+from backup_manager import initialize_backup_system, get_backup_manager
+import asyncio
+
 
 @bot.event
 async def on_ready():
     print(f'{bot.user} has connected to Discord!')
     await bot.change_presence(activity=discord.Game(name=".dth or .gops @opponent to play!"))
+
+    # Initialize backup system
+    initialize_backup_system()
+
+    # Start the scheduled backup task
+    if os.getenv('RENDER'):
+        bot.loop.create_task(scheduled_backup())
+
+
+# Add backup command
+@bot.command(name='backup')
+@commands.is_owner()
+async def manual_backup(ctx):
+    """Manual backup command (bot owner only)"""
+    try:
+        manager = get_backup_manager()
+        if manager:
+            success_count = manager.backup_all_databases()
+            await ctx.send(f"✅ Manual backup completed: {success_count} databases backed up")
+        else:
+            await ctx.send("❌ Backup system not available")
+    except Exception as e:
+        await ctx.send(f"❌ Backup failed: {str(e)}")
+
+
+@bot.command(name='restore')
+@commands.is_owner()
+async def manual_restore(ctx):
+    """Manual restore command (bot owner only)"""
+    try:
+        manager = get_backup_manager()
+        if manager:
+            success_count = manager.restore_all_databases()
+            await ctx.send(f"✅ Manual restore completed: {success_count} databases restored")
+        else:
+            await ctx.send("❌ Backup system not available")
+    except Exception as e:
+        await ctx.send(f"❌ Restore failed: {str(e)}")
+
+
+# Automated backup task
+async def scheduled_backup():
+    """Run automated backups every 6 hours"""
+    await bot.wait_until_ready()
+
+    while not bot.is_closed():
+        try:
+            manager = get_backup_manager()
+            if manager and os.getenv('RENDER'):
+                print("Running scheduled backup...")
+                manager.backup_all_databases()
+                manager.cleanup_old_backups(days_to_keep=7)  # Keep 1 week of backups
+                print("Scheduled backup completed")
+        except Exception as e:
+            print(f"Scheduled backup error: {e}")
+
+        # Wait 2 hours
+        await asyncio.sleep(2 * 60 * 60)
 
 
 @bot.command(name='score')
@@ -40,41 +102,39 @@ async def show_score(ctx, *, args=None):
     """Show player statistics"""
     # If no args provided, show author's score
     if args is None:
-        args = ctx.author.mention
-    
+        player_mention = ctx.author.mention
+    else:
+        player_mention = args.strip()
+
     # Check for "vs" pattern for head-to-head
-    if ' vs ' in args.lower():
-        parts = args.split(' vs ', 1)
+    if ' vs ' in player_mention.lower():
+        parts = player_mention.split(' vs ', 1)
         if len(parts) != 2:
             await ctx.send("❌ Usage: `.score @player` or `.score @player1 vs @player2`")
             return
-        
+
         player1_mention = parts[0].strip()
         player2_mention = parts[1].strip()
-        
+
         # Extract user IDs from mentions
         player1 = await extract_user_from_mention(bot, ctx, player1_mention)
         player2 = await extract_user_from_mention(bot, ctx, player2_mention)
-        
+
         if not player1 or not player2:
             await ctx.send("❌ Please mention valid players!")
             return
-        
+
         # Get 1v1 game stats
         stats = await get_head_to_head_stats(player1.id, player2.id)
-        
+
         # Get KOD stats
         kod_stats = await get_kod_head_to_head_stats(player1.id, player2.id)
         kod_wins1, kod_wins2, kod_draws = kod_stats if kod_stats else (0, 0, 0)
-        
-        # Format the response
-        if not stats and not kod_stats:
-            await ctx.send(f"{player1.mention} and {player2.mention} haven't played any games together!")
-            return
-            
+
+        # Format the response - always show the table, even if empty
         response = f"**{player1.mention}'s gambling score against {player2.mention}:**\n```\n"
         response += "Game           W   D   L\n\n"
-        
+
         # Add 1v1 games
         for game_type, total, wins1, wins2, draws in stats:
             game_name = get_game_display_name(game_type)
@@ -85,38 +145,33 @@ async def show_score(ctx, *, args=None):
                 draws_display = str(draws)
             # wins1 are player1's wins, wins2 are player2's wins (which are player1's losses)
             response += f"{game_name:<14} {wins1:<3} {draws_display:<3} {wins2:<3}\n"
-        
+
         # Add KOD only if they have played KOD games together
         if kod_stats and (kod_wins1 > 0 or kod_wins2 > 0 or kod_draws > 0):
             response += f"{'KOD':<14} {kod_wins1:<3} {kod_draws:<3} {kod_wins2:<3}\n"
-            
+
         response += "```"
         await ctx.send(response)
-        
+
     else:
         # Single player stats
-        player_mention = args.strip()
         player = await extract_user_from_mention(bot, ctx, player_mention)
-        
+
         if not player:
             await ctx.send("❌ Please mention a valid player!")
             return
-        
+
         # Get 1v1 game stats
         stats = await get_player_stats(player.id)
-        
+
         # Get KOD stats
         kod_stats = await get_kod_player_stats(player.id)
         kod_wins, kod_draws, kod_losses = kod_stats if kod_stats else (0, 0, 0)
-        
-        # Format the response
-        if not stats and not kod_stats:
-            await ctx.send(f"{player.mention} hasn't played any games yet!")
-            return
-            
+
+        # Format the response - always show the table, even if empty
         response = f"**{player.mention}'s gambling score:**\n```\n"
         response += "Game           W   D   L\n\n"
-        
+
         # Add 1v1 games
         for game_type, total, wins, draws, losses in stats:
             game_name = get_game_display_name(game_type)
@@ -126,11 +181,11 @@ async def show_score(ctx, *, args=None):
             else:
                 draws_display = str(draws)
             response += f"{game_name:<14} {wins:<3} {draws_display:<3} {losses:<3}\n"
-        
+
         # Add KOD only if player has played KOD games
         if kod_stats:
             response += f"{'KOD':<14} {kod_wins:<3} {kod_draws:<3} {kod_losses:<3}\n"
-            
+
         response += "```"
         await ctx.send(response)
 
@@ -908,4 +963,3 @@ async def start_game_error(ctx, error):
 if __name__ == "__main__":
     webserver.keep_alive()
     bot.run(DISCORD_TOKEN)
-
