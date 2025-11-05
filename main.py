@@ -10,10 +10,10 @@ from dotty import BloodyDottyGame
 from airpoker import AirPokerGame
 from kod import KingOfDiamondsGame
 from knucklebones import KnucklebonesGame
+from contradiction import ContradictionGame
 
 # Load environment variables
 load_dotenv()
-
 DISCORD_TOKEN = os.getenv('discordkey')
 
 intents = discord.Intents.default()
@@ -237,6 +237,32 @@ async def start_kb_game(ctx, opponent: discord.Member):
     if await game.start_game():
         active_games[game_id] = game
 
+@bot.command(name='contr')
+async def start_contradiction_game(ctx, opponent: discord.Member):
+    """Start a Contradiction game"""
+    # Validation checks
+    if opponent == ctx.author:
+        await ctx.send("❌ You can't play against yourself!")
+        return
+
+    if opponent.bot:
+        await ctx.send("❌ You can't play against a bot!")
+        return
+
+    # Check if either player is already in a game
+    for game_id, game in active_games.items():
+        if ctx.author.id in game_id or opponent.id in game_id:
+            await ctx.send("❌ One of the players is already in an active game!")
+            return
+
+    # Create new game
+    game_id = (ctx.author.id, opponent.id, "contr")
+    game = ContradictionGame(ctx.author, opponent, ctx.channel)
+    game_channels[game_id] = ctx.channel.id
+
+    # Try to start the game
+    if await game.start_game():
+        active_games[game_id] = game
 
 async def process_dm_command(message):
     """Process commands received in DMs"""
@@ -503,6 +529,67 @@ async def process_dm_command(message):
         if not player_game.game_active:
             # Find the correct game_id by matching the game object
             game_id_to_remove = None
+            for game_id, game in active_games.items():
+                if game == player_game:
+                    game_id_to_remove = game_id
+                    break
+
+    elif game_type == "contr":
+        if command == '.spear':
+            if len(parts) < 2:
+                await message.channel.send("❌ Please specify a spear! Usage: `.spear [taser/katana/gun]`")
+                return
+
+            spear_choice = parts[1].lower()
+            result = await player_game.process_spear(message.author, spear_choice)
+
+            if result:
+                await message.channel.send(result)
+            else:
+                try:
+                    await message.add_reaction('✅')
+                except:
+                    pass
+
+        elif command == '.shield':
+            if len(parts) < 2:
+                await message.channel.send("❌ Please specify a shield! Usage: `.shield [rubber/wooden/iron]`")
+                return
+
+            shield_choice = parts[1].lower()
+            result = await player_game.process_shield(message.author, shield_choice)
+
+            if result:
+                await message.channel.send(result)
+            else:
+                try:
+                    await message.add_reaction('✅')
+                except:
+                    pass
+
+        elif command == '.bet':
+            if len(parts) < 2:
+                await message.channel.send("❌ Please specify a bet amount! Usage: `.bet [amount]`")
+                return
+
+            bet_amount = parts[1]
+            result = await player_game.process_bet(message.author, bet_amount)
+
+            if result:
+                await message.channel.send(result)
+            else:
+                try:
+                    await message.add_reaction('✅')
+                except:
+                    pass
+
+        else:
+            await message.channel.send(
+                "❌ Unknown command for Contradiction game. Use `.spear [type]`, `.shield [type]`, or `.bet [amount]`")
+            return
+
+        # If Contradiction game ended, remove it from active games
+        if not player_game.game_active:
             for game_id, game in active_games.items():
                 if game == player_game:
                     game_id_to_remove = game_id
@@ -789,6 +876,15 @@ async def cancel_game(ctx):
     else:
         await ctx.send("❌ You're not in an active game!")
 
+
+@start_contradiction_game.error
+async def start_contradiction_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("❌ Please mention an opponent! Usage: `.contr @opponent`")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("❌ Please mention a valid user! Usage: `.contr @opponent`")
+    else:
+        await ctx.send("❌ An error occurred. Please try again.")
 
 # Error handling
 @start_dth_game.error
