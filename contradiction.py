@@ -155,16 +155,19 @@ class ContradictionGame:
 
     async def process_bet(self, player, amount):
         """Process player's bet"""
-        try:
-            bet_amount = int(amount)
-        except ValueError:
-            return "❌ Please provide a valid number for your bet!"
-
-        if bet_amount <= 0:
-            return "❌ Bet must be positive!"
-
-        if bet_amount > self.bios[player.id]:
-            return f"❌ You don't have enough Bios! You have {self.bios[player.id]:,}"
+        if amount == 'all':
+            bet_amount = self.bios[player.id]
+        else:
+            try:
+                bet_amount = int(amount)
+            except ValueError:
+                return "❌ Please provide a valid number for your bet!"
+    
+            if bet_amount <= 0:
+                return "❌ Bet must be positive!"
+    
+            if bet_amount > self.bios[player.id]:
+                return f"❌ You don't have enough Bios! You have {self.bios[player.id]:,}"
 
         self.bets[player.id] = bet_amount
 
