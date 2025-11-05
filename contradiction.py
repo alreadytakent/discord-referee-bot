@@ -162,10 +162,10 @@ class ContradictionGame:
                 bet_amount = int(amount)
             except ValueError:
                 return "❌ Please provide a valid number for your bet!"
-    
+
             if bet_amount <= 0:
                 return "❌ Bet must be positive!"
-    
+
             if bet_amount > self.bios[player.id]:
                 return f"❌ You don't have enough Bios! You have {self.bios[player.id]:,}"
 
@@ -195,36 +195,36 @@ class ContradictionGame:
             await self.request_bets()
             return None
 
-        # Determine attacker and defender
+        # Determine attacker and defender based on bets
         if bet1 > bet2:
             attacker = self.players[0]
             defender = self.players[1]
-            attacker_bet = bet1
-            defender_bet = bet2
         else:
             attacker = self.players[1]
             defender = self.players[0]
-            attacker_bet = bet2
-            defender_bet = bet1
 
-        # Get the chosen tools
+        # Get the chosen tools from the original choosers
         spear = self.spear_choices[self.spear_chooser.id]
         shield = self.shield_choices[self.shield_chooser.id]
+
+        # Get the bets for the spear chooser and shield chooser
+        spear_chooser_bet = self.bets[self.spear_chooser.id]
+        shield_chooser_bet = self.bets[self.shield_chooser.id]
 
         # Calculate damage
         damage = self.damage_matrix[spear][shield]
 
         # Apply damage and deduct bios
         self.hp[defender.id] = max(0, self.hp[defender.id] - damage)
-        self.bios[attacker.id] -= attacker_bet
-        self.bios[defender.id] -= defender_bet
+        self.bios[attacker.id] -= self.bets[attacker.id]
+        self.bios[defender.id] -= self.bets[defender.id]
 
         # Send result to channel and prepare next draw
-        await self.send_round_result_and_next(attacker, defender, spear, shield, attacker_bet, defender_bet, damage)
+        await self.send_round_result_and_next(spear_chooser_bet, shield_chooser_bet, spear, shield, damage)
 
         return None
 
-    async def send_round_result_and_next(self, attacker, defender, spear, shield, attacker_bet, defender_bet, damage):
+    async def send_round_result_and_next(self, spear_chooser_bet, shield_chooser_bet, spear, shield, damage):
         """Send round result to channel and prepare next draw in one message"""
         player1 = self.players[0]
         player2 = self.players[1]
@@ -234,11 +234,11 @@ class ContradictionGame:
 
         damage_emoji = "💥" if damage > 0 else "❌"
 
-        # Build the result message
+        # Build the result message - show who chose spear vs shield with their respective bets
         result_msg = (
             f"***===== :crossed_swords: :shield: CONTRADICTION - Round {self.current_round} - Draw {self.current_draw}/3 :shield: :crossed_swords: =====***\n\n"
-            f"{attacker.mention} chose **{spear.upper()}** and bet **{attacker_bet:,} Bios**\n"
-            f"{defender.mention} chose **{shield.upper()} SHIELD** and bet **{defender_bet:,} Bios**\n\n"
+            f"{self.spear_chooser.mention} chose **{spear.upper()}** and bet **{spear_chooser_bet:,} Bios**\n"
+            f"{self.shield_chooser.mention} chose **{shield.upper()} SHIELD** and bet **{shield_chooser_bet:,} Bios**\n\n"
             f"**{spear.upper()}** vs **{shield.upper()} SHIELD** = {damage} damage! {damage_emoji}\n\n"
             f"{hp_bar1}{player1.mention} {self.bios[player1.id]:,} Bios\n\n"
             f"{hp_bar2}{player2.mention} {self.bios[player2.id]:,} Bios"
@@ -261,20 +261,21 @@ class ContradictionGame:
 
         self.current_draw += 1
 
-        # Check if game ended
-        if self.hp[defender.id] <= 0:
+        # Check if game ended (check both players' HP)
+        if self.hp[player1.id] <= 0:
             self.game_active = False
-            result_msg += f"\n\n**🏆 GAME OVER! {attacker.mention} wins!**"
-
-        elif self.bios[attacker.id] == 0:
+            result_msg += f"\n\n**🏆 GAME OVER! {player2.mention} wins!**"
+        elif self.hp[player2.id] <= 0:
             self.game_active = False
-            result_msg += f"\n\n**🏆 GAME OVER! {defender.mention} wins!**"
-
-        elif self.bios[defender.id] == 0:
+            result_msg += f"\n\n**🏆 GAME OVER! {player1.mention} wins!**"
+        elif self.bios[player1.id] == 0:
             self.game_active = False
-            result_msg += f"\n\n**🏆 GAME OVER! {defender.mention} wins!**"
+            result_msg += f"\n\n**🏆 GAME OVER! {player2.mention} wins!**"
+        elif self.bios[player2.id] == 0:
+            self.game_active = False
+            result_msg += f"\n\n**🏆 GAME OVER! {player1.mention} wins!**"
 
-        # Add next draw information to the message
+        # Add next draw information to the message if game is still active
         elif self.current_draw <= 3:
             if self.current_draw == 3:  # Last draw of the round
                 # Automatic choices for last draw
