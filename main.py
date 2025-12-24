@@ -11,6 +11,7 @@ from airpoker import AirPokerGame
 from kod import KingOfDiamondsGame
 from knucklebones import KnucklebonesGame
 from contradiction import ContradictionGame
+from mdth import MangaAccurateDTHGame
 
 # Load environment variables
 load_dotenv()
@@ -264,6 +265,33 @@ async def start_contradiction_game(ctx, opponent: discord.Member):
     if await game.start_game():
         active_games[game_id] = game
 
+@bot.command(name='mdth')  # Added command
+async def start_mdth_game(ctx, opponent: discord.Member):
+    """Start a Manga Accurate Drop the Handkerchief game"""
+    # Validation checks
+    if opponent == ctx.author:
+        await ctx.send("❌ You can't play against yourself!")
+        return
+
+    if opponent.bot:
+        await ctx.send("❌ You can't play against a bot!")
+        return
+
+    # Check if either player is already in a game
+    for game_id, game in active_games.items():
+        if ctx.author.id in game_id or opponent.id in game_id:
+            await ctx.send("❌ One of the players is already in an active game!")
+            return
+
+    # Create new game
+    game_id = (ctx.author.id, opponent.id, "mdth")
+    game = MangaAccurateDTHGame(ctx.author, opponent, ctx.channel)
+    game_channels[game_id] = ctx.channel.id
+
+    # Try to start the game
+    if await game.start_game():
+        active_games[game_id] = game
+
 async def process_dm_command(message):
     """Process commands received in DMs"""
     content = message.content.strip()
@@ -364,7 +392,7 @@ async def process_dm_command(message):
 
     if not player_game:
         await message.channel.send(
-            "❌ You're not in an active game! Start one with `.dth @opponent`, `.gops @opponent`, `.comb @opponent`, or `.dotty @opponent` in a server.")
+            "❌ You're not in an active game! Start one with `.dth @opponent`, `.gops @opponent`, `.comb @opponent`, `.dotty @opponent`, `.airpoker @opponent`, `.Kod @opponent`, `.kb @opponent`, `.contr @opponent`, or `.mdth @opponent` in a server.")  # Updated message
         return
 
     # Process the command based on game type
@@ -589,6 +617,40 @@ async def process_dm_command(message):
             return
 
         # If Contradiction game ended, remove it from active games
+        if not player_game.game_active:
+            for game_id, game in active_games.items():
+                if game == player_game:
+                    game_id_to_remove = game_id
+                    break
+
+    elif game_type == "mdth":  # Added MDTH handling
+        if command == '.drop':
+            result = await player_game.process_drop(message.author, number)
+
+            if result:  # If there's an error message
+                await message.channel.send(result)
+            else:  # If successful, add checkmark reaction
+                try:
+                    await message.add_reaction('✅')
+                except:
+                    pass
+
+        elif command == '.check':
+            result = await player_game.process_check(message.author, number)
+
+            if result:  # If there's an error message
+                await message.channel.send(result)
+            else:  # If successful, add checkmark reaction
+                try:
+                    await message.add_reaction('✅')
+                except:
+                    pass
+
+        else:
+            await message.channel.send("❌ Unknown command for Manga Accurate DTH game. Use `.drop [1-60]` or `.check [1-60]`")
+            return
+
+        # If MDTH game ended, remove it from active games
         if not player_game.game_active:
             for game_id, game in active_games.items():
                 if game == player_game:
@@ -883,6 +945,16 @@ async def start_contradiction_error(ctx, error):
         await ctx.send("❌ Please mention an opponent! Usage: `.contr @opponent`")
     elif isinstance(error, commands.BadArgument):
         await ctx.send("❌ Please mention a valid user! Usage: `.contr @opponent`")
+    else:
+        await ctx.send("❌ An error occurred. Please try again.")
+
+# Error handling for mdth
+@start_mdth_game.error
+async def start_mdth_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("❌ Please mention an opponent! Usage: `.mdth @opponent`")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("❌ Please mention a valid user! Usage: `.mdth @opponent`")
     else:
         await ctx.send("❌ An error occurred. Please try again.")
 
