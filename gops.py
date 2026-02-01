@@ -148,9 +148,9 @@ class GOPSGame:
         total_prize_value = sum(self.current_prizes)
 
         if len(self.current_prizes) == 1:
-            prize_display = f"**{" + ".join(str(p) for p in self.current_prizes)}**"
+            prize_display = f"**{' + '.join(str(p) for p in self.current_prizes)}**"
         else:
-            prize_display = f"{" + ".join(str(p) for p in self.current_prizes)} = **{total_prize_value}**"
+            prize_display = f"{' + '.join(str(p) for p in self.current_prizes)} = **{total_prize_value}**"
 
         result_message = (
             f"***===== Game of Pure Strategy - Round {self.round} =====***\n\n"
@@ -271,20 +271,20 @@ class GOPSGame:
 
             if self.current_prizes:
                 if len(self.current_prizes) == 1:
-                    prize_display = f"**{" + ".join(str(p) for p in self.current_prizes)}**"
+                    prize_display = f"**{' + '.join(str(p) for p in self.current_prizes)}**"
                 else:
                     total_prize_value = sum(self.current_prizes)
-                    prize_display = f"{" + ".join(str(p) for p in self.current_prizes)} = **{total_prize_value}**"
+                    prize_display = f"{' + '.join(str(p) for p in self.current_prizes)} = **{total_prize_value}**"
                 result_message += f"\n\n**Round {self.round}** - Prize cards: {prize_display}"
             else:
                 # If no prize cards left but players still have cards, draw a new one
                 if self.prize_deck:
                     self.current_prizes = [self.prize_deck.pop()]
                     if len(self.current_prizes) == 1:
-                        prize_display = f"**{" + ".join(str(p) for p in self.current_prizes)}**"
+                        prize_display = f"**{' + '.join(str(p) for p in self.current_prizes)}**"
                     else:
                         total_prize_value = sum(self.current_prizes)
-                        prize_display = f"{" + ".join(str(p) for p in self.current_prizes)} = **{total_prize_value}**"
+                        prize_display = f"{' + '.join(str(p) for p in self.current_prizes)} = **{total_prize_value}**"
                     result_message += f"\n\n**Round {self.round}** - Prize cards: {prize_display}"
                 else:
                     # No more prize cards but players still have cards (shouldn't happen in normal game)
@@ -292,3 +292,4 @@ class GOPSGame:
                     self.game_active = False
 
         return result_message
+
