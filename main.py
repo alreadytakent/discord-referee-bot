@@ -18,7 +18,7 @@ from game_stats import *
 # Load environment variables
 load_dotenv()
 
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+DISCORD_TOKEN = os.getenv('discordkey')
 
 intents = discord.Intents.default()
 intents.message_content = True
